@@ -1,0 +1,14 @@
+services:
+  web-service:
+    depends_on:
+      - model-service
+    image: benbehat/playground:latest
+    ports:
+      - "8080:8080" # Mappt Port 80 (extern) auf 8080 (intern) [cite: 742]
+    restart: always
+
+  model-service:
+    image: deepjavalibrary/djl-serving:0.26.0 # Nutzt das offizielle Image [cite: 301, 745]
+    ports:
+      - "8081:8080" # DJL Serving auf einem anderen Port bereitstellen
+    restart: always

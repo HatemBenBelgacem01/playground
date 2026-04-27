@@ -51,23 +51,27 @@ public class PlaygroundController {
 
     // Dein neuer Deep-Learning-Endpoint
     @GetMapping("/analyze")
-    public Map<String, Double> analyzeText(@RequestParam String text) throws Exception {
-        if (predictor == null) {
-            throw new RuntimeException("Fehler: Modell wurde nicht geladen.");
+    public String analyzeText(@RequestParam String text) {
+        // Die URL zeigt auf den Namen des Services im Docker-Netzwerk
+        var uri = "http://localhost:8081/predictions/sentiment"; 
+        
+        // Wenn wir im Docker-Netzwerk sind, nutzen wir den Service-Namen
+        if (new java.io.File("/.dockerenv").exists()) {
+            uri = "http://model-service:8080/predictions/sentiment";
         }
+
+        var webClient = org.springframework.web.reactive.function.client.WebClient.create();
         
-        // 1. Vorhersage durch das Modell generieren lassen
-        Classifications result = predictor.predict(text);
-        
-        // 2. Eine simple Map erstellen (LinkedHashMap bewahrt die Sortierung der KI)
-        Map<String, Double> jsonResponse = new LinkedHashMap<>();
-        
-        // 3. Die Ergebnisse aus dem DJL-Objekt sicher auslesen
-        for (var item : result.items()) {
-            jsonResponse.put(item.getClassName(), item.getProbability());
-        }
-        
-        // 4. Spring Boot verwandelt diese Map nun absolut fehlerfrei in JSON
-        return jsonResponse;
+        return webClient.post()
+            .uri(uri)
+            .bodyValue(text)
+            .retrieve()
+            .bodyToMono(String.class)
+            .block();
+    }
+
+    private boolean isDockerized() {
+        File f = new File("/.dockerenv");
+        return f.exists();
     }
 }
