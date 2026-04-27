@@ -32,6 +32,11 @@
 	<dependencies>
 
 		<dependency>
+    		<groupId>org.springframework.boot</groupId>
+    		<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		
+		<dependency>
     		<groupId>ai.djl.mxnet</groupId>
     		<artifactId>mxnet-engine</artifactId>
     		<version>0.33.0</version>
