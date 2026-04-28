@@ -8,7 +8,6 @@ import org.springframework.web.reactive.function.BodyInserters;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 
-import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,42 +16,52 @@ import java.util.Map;
 public class PlaygroundController {
 
     @GetMapping("/analyze")
-    public Map<String, Double> analyzeText(@RequestParam String text) throws Exception {
-        // Die URL zeigt auf das Sentiment-Modell im DJL Serving Container
-        var uri = "http://localhost:8081/predictions/sentiment_analysis"; 
+    public Map<String, Double> analyzeText(@RequestParam String text) {
         
-        if (this.isDockerized()) {
-            uri = "http://model-service:8080/predictions/sentiment_analysis";
+        // 1. Schlaue Erkennung des DJL-Containers
+        String uri = "http://model-service:8080/predictions/sentiment_analysis";
+        try {
+            // Test, ob der Container im Docker-Netzwerk erreichbar ist
+            java.net.InetAddress.getByName("model-service");
+        } catch (Exception e) {
+            // Fallback für lokale Tests ohne Docker Compose
+            uri = "http://localhost:8081/predictions/sentiment_analysis";
         }
 
-        var webClient = WebClient.create();
-        
-        // Sende den Text als simplen String an DJL Serving
-        String jsonResponse = webClient.post()
-            .uri(uri)
-            .header("Content-Type", "text/plain")
-            .body(BodyInserters.fromValue(text))
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
-            
-        // DJL Serving gibt ein Array zurück: [{"class": "Positive", "probability": 0.99}]
-        // Wir wandeln es um, damit dein HTML/JS Frontend (script.js) unverändert weiterfunktioniert!
-        ObjectMapper mapper = new ObjectMapper();
-        List<Map<String, Object>> djlResult = mapper.readValue(jsonResponse, new TypeReference<List<Map<String, Object>>>(){});
-        
-        Map<String, Double> finalResult = new LinkedHashMap<>();
-        for (Map<String, Object> item : djlResult) {
-            String className = item.containsKey("class") ? (String) item.get("class") : (String) item.get("className");
-            Double probability = ((Number) item.get("probability")).doubleValue();
-            finalResult.put(className, probability);
-        }
-        
-        return finalResult;
-    }
+        try {
+            // 2. Anfrage an die KI senden
+            var webClient = WebClient.create();
+            String jsonResponse = webClient.post()
+                .uri(uri)
+                .header("Content-Type", "text/plain")
+                .body(BodyInserters.fromValue(text))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+                
+            // 3. Antwort verarbeiten
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                List<Map<String, Object>> djlResult = mapper.readValue(jsonResponse, new TypeReference<List<Map<String, Object>>>(){});
+                Map<String, Double> finalResult = new LinkedHashMap<>();
+                for (Map<String, Object> item : djlResult) {
+                    String className = item.containsKey("class") ? String.valueOf(item.get("class")) : String.valueOf(item.get("className"));
+                    Double probability = ((Number) item.get("probability")).doubleValue();
+                    finalResult.put(className, probability);
+                }
+                return finalResult;
+            } catch (Exception parseEx) {
+                // Zeigt das rohe JSON als Balken im Frontend an, falls das Format abweicht!
+                Map<String, Double> errorResult = new LinkedHashMap<>();
+                errorResult.put("KI-Antwort: " + jsonResponse, 1.0);
+                return errorResult;
+            }
 
-    private boolean isDockerized() {
-        File f = new File("/.dockerenv");
-        return f.exists();
+        } catch (Exception e) {
+            // Zeigt Verbindungsfehler direkt als Balken im Frontend an anstatt abzustürzen!
+            Map<String, Double> errorResult = new LinkedHashMap<>();
+            errorResult.put("Backend-Fehler: " + e.getMessage(), 1.0);
+            return errorResult;
+        }
     }
 }
