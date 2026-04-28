@@ -17,10 +17,12 @@ public class PlaygroundController {
     @GetMapping("/analyze")
     public Map<String, Double> analyzeText(@RequestParam String text) {
         
+        // Der Name deines DJL-Containers laut docker-compose.yml
         String uri = "http://model-service:8080/predictions/sentiment_analysis";
         try {
             java.net.InetAddress.getByName("model-service");
         } catch (Exception e) {
+            // Fallback für lokales Testen
             uri = "http://localhost:8081/predictions/sentiment_analysis";
         }
 
@@ -34,7 +36,6 @@ public class PlaygroundController {
                 .bodyToMono(String.class)
                 .block();
                 
-            // Die KI liefert direkt {"Positive": 0.99}. Das geben wir ans Frontend weiter!
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readValue(jsonResponse, new TypeReference<Map<String, Double>>(){});
 
