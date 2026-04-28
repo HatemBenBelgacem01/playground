@@ -1,14 +1,17 @@
 services:
   web-service:
+    build: 
+      context: .
     depends_on:
       - model-service
     image: benbehat/playground:latest
     ports:
-      - "8080:8080" # Mappt Port 80 (extern) auf 8080 (intern) [cite: 742]
+      - "80:8080" # Für Azure auf Port 80
     restart: always
 
   model-service:
-    image: deepjavalibrary/djl-serving:0.26.0 # Nutzt das offizielle Image [cite: 301, 745]
+    image: deepjavalibrary/djl-serving:0.26.0
+    command: djl-serving -m sentiment_analysis=djl://ai.djl.pytorch/distilbert
     ports:
-      - "8081:8080" # DJL Serving auf einem anderen Port bereitstellen
+      - "8081:8080"
     restart: always
